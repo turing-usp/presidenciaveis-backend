@@ -8,11 +8,14 @@ from typing import List
 import argparse
 import pandas as pd
 from datetime import datetime
+import time
+from tqdm import tqdm
 
 load_dotenv()
 TOKEN = os.getenv('TWITTER_API_BEARER_TOKEN')
 API_ENDPOINT = os.getenv('TWITTER_API_URL', default='https://api.twitter.com/2/')
 API_ENDPOINT = API_ENDPOINT + '/' if API_ENDPOINT[-1] != '/' else API_ENDPOINT
+
 
 AUTH_HEADERS = {
     'Accept': 'application/json',
@@ -21,7 +24,7 @@ AUTH_HEADERS = {
 }
 
 MAX_TWEETS_PER_REQUEST = 100
-
+RATE_LIMIT_15_MINUTES = 450
 
 def get_session(retries=5, backoff_factor=2):
     session = requests.Session()
@@ -51,13 +54,13 @@ def get_user(username: str) -> dict:
 
 
 def get_all_tweets(
-        user_id: str,
+        username: str,
         n_tweets: int = 10,
         exclude: List[str] = None
 ) -> List:
     n_tweets = max(5, n_tweets)
 
-    url = API_ENDPOINT + f'users/{user_id}/tweets'
+    url = API_ENDPOINT + f'tweets/search/all'
 
     n_iterations = 1 + (n_tweets // (MAX_TWEETS_PER_REQUEST + 1))
 
@@ -68,7 +71,8 @@ def get_all_tweets(
 
     query = {
         'max_results': min(MAX_TWEETS_PER_REQUEST, n_tweets),
-        'exclude': exclude_param,
+        #'exclude': exclude_param,
+        'query': f'from:{username}',
         'tweet.fields': 'public_metrics,created_at,conversation_id',
         'pagination_token': None
     }
@@ -76,14 +80,19 @@ def get_all_tweets(
     tweets = []
 
     s = get_session(5, 10)
-    for it in range(n_iterations):
+    for it in tqdm(range(n_iterations)):
+        if it+1 % RATE_LIMIT_15_MINUTES-10 == 0:
+            print("Rate limit!")
+            time.sleep(60*15) #15 minutes
+            #break
         r = s.get(url, params=query, headers=AUTH_HEADERS)
+        o_r = r
         r = r.json()
         if 'data' in r:
             tweets += r['data']
         else:
-            status = r['status']
-            raise HTTPError(f'Error {status} fetching tweets from user with id {user_id}')
+            status = o_r.status_code
+            raise HTTPError(f'Error {status} fetching tweets from user with {username}')
 
         if 'next_token' in r['meta']:
             query['pagination_token'] = r['meta']['next_token']
@@ -137,10 +146,12 @@ if __name__ == '__main__':
     parser.add_argument('usernames', nargs='*')
     parser.add_argument('--group-threads', dest='group_threads', action='store_true')
     args = parser.parse_args()
-
+    
     for username in args.usernames:
+        tic = datetime.now()
         current_user = get_user(username)
-        current_tweets = get_all_tweets(current_user['id'], n_tweets=3200, exclude=['retweets', 'replies'])
+        current_tweets = get_all_tweets(username, n_tweets=14200, exclude=['retweets', 'replies'])
+        print("Tempo:",datetime.now() - tic)
         current_df = parse_tweets_to_dataframe(current_user, current_tweets)
         current_df.to_csv(f"{datetime.now().strftime(r'%Y%m%dT%H%M%S%z')}_{username}_tweets.csv", index=False)
         if args.group_threads:
