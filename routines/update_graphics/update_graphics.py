@@ -261,7 +261,7 @@ def correlacao(tema):
                                       xaxis_showgrid=False, yaxis_showgrid=False,
                                       yaxis={"autorange":"reversed"}))
 
-    fig.write_html(f'../presidenciaveis_script/graphic/{tema}.html')
+    fig.write_html(f'../presidenciaveis_script/data/{tema}.html')
 
 for column in embeddings_att.columns:
   correlacao(column)
