@@ -14,16 +14,15 @@ import plotly.graph_objects as go
 #Limpeza: preencher apenas o que for atualizar
 #lula = pd.read_csv('')
 #bolsonaro = pd.read_csv()
-#andre = pd.read_csv('')
 #simone = pd.read_csv('') 
 #felipe = pd.read_csv('')
 #ciro = pd.read_csv('')
-#bivar = pd.read_csv('')
 #leo = pd.read_csv('')
 #pablo = pd.read_csv('')
 #sofia = pd.read_csv('')
 #eymael = pd.read_csv('')
 #vera = pd.read_csv('')
+#soraya = pd.read_csv('')
 
 #adicionar o nome dos candidatos que for atualizar:
 candidatos = []
@@ -54,7 +53,7 @@ def remove_breakline(text):
 df['clean_text'] = df.clean_text.apply(remove_breakline)
 
 def remove_links(text):
-  text = re.sub('https:.+$', '', text)
+  text = re.sub('http(?:s)?:.+$', '', text)
   return text
 df['clean_text'] = df.clean_text.apply(remove_links)
 
@@ -213,6 +212,11 @@ def correlacao(tema):
     similarity_array = np.zeros((len(embeddings_att.index),len(embeddings_att.index)))
     lista_legendas_celulas = []
 
+    for i in tweets_att.columns:
+      for j in tweets_att.index:
+        if tweets_att[i][j] < 10:
+          df[i][j] = [0]
+
     for i in range(len(embeddings_att.index)):
       for j in range(len(embeddings_att.index)):
         similarity_array[i][j] = round(similaridade_candidatos(embeddings_att.index[i], embeddings_att.index[j],tema), 2)
@@ -261,7 +265,7 @@ def correlacao(tema):
                                       xaxis_showgrid=False, yaxis_showgrid=False,
                                       yaxis={"autorange":"reversed"}))
 
-    fig.write_html(f'../presidenciaveis_script/data/{tema}.html')
+    fig.write_html(f'../presidenciaveis_script/graphic/{tema}.html')
 
 for column in embeddings_att.columns:
   correlacao(column)
